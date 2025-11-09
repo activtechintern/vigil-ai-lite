@@ -14,16 +14,208 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      alerts: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          created_at: string
+          id: string
+          issue: string
+          monitor_id: string
+          status: Database["public"]["Enums"]["alert_status"]
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          id?: string
+          issue: string
+          monitor_id: string
+          status?: Database["public"]["Enums"]["alert_status"]
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          id?: string
+          issue?: string
+          monitor_id?: string
+          status?: Database["public"]["Enums"]["alert_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alerts_monitor_id_fkey"
+            columns: ["monitor_id"]
+            isOneToOne: false
+            referencedRelation: "monitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metrics: {
+        Row: {
+          checked_at: string
+          id: string
+          monitor_id: string
+          response_time: number | null
+          status: Database["public"]["Enums"]["monitor_status"]
+          status_code: number | null
+        }
+        Insert: {
+          checked_at?: string
+          id?: string
+          monitor_id: string
+          response_time?: number | null
+          status: Database["public"]["Enums"]["monitor_status"]
+          status_code?: number | null
+        }
+        Update: {
+          checked_at?: string
+          id?: string
+          monitor_id?: string
+          response_time?: number | null
+          status?: Database["public"]["Enums"]["monitor_status"]
+          status_code?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metrics_monitor_id_fkey"
+            columns: ["monitor_id"]
+            isOneToOne: false
+            referencedRelation: "monitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monitors: {
+        Row: {
+          alert_email: string | null
+          check_interval: number
+          created_at: string
+          id: string
+          last_checked_at: string | null
+          name: string
+          status: Database["public"]["Enums"]["monitor_status"]
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          alert_email?: string | null
+          check_interval?: number
+          created_at?: string
+          id?: string
+          last_checked_at?: string | null
+          name: string
+          status?: Database["public"]["Enums"]["monitor_status"]
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          alert_email?: string | null
+          check_interval?: number
+          created_at?: string
+          id?: string
+          last_checked_at?: string | null
+          name?: string
+          status?: Database["public"]["Enums"]["monitor_status"]
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reports: {
+        Row: {
+          created_at: string
+          id: string
+          period: string
+          report_url: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          period: string
+          report_url?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          period?: string
+          report_url?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      alert_status: "active" | "acknowledged" | "resolved"
+      app_role: "admin" | "operator" | "viewer"
+      monitor_status: "up" | "down" | "checking"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +342,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      alert_status: ["active", "acknowledged", "resolved"],
+      app_role: ["admin", "operator", "viewer"],
+      monitor_status: ["up", "down", "checking"],
+    },
   },
 } as const
