@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCanManageMonitors } from "@/hooks/useUserRole";
 import { Badge } from "@/components/ui/badge";
+import { monitorSchema, sanitizeInput } from "@/lib/validation";
 
 const Monitors = () => {
   const [open, setOpen] = useState(false);
@@ -86,10 +87,28 @@ const Monitors = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMonitor.mutate({
-      user_id: user?.id,
+    
+    // Validate input
+    const validation = monitorSchema.safeParse({
       name,
       url,
+      check_interval: parseInt(checkInterval),
+      alert_email: alertEmail,
+    });
+
+    if (!validation.success) {
+      toast({
+        title: "Validation Error",
+        description: validation.error.errors[0].message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createMonitor.mutate({
+      user_id: user?.id,
+      name: sanitizeInput(name),
+      url: url,
       check_interval: parseInt(checkInterval),
       alert_email: alertEmail || null,
     });
