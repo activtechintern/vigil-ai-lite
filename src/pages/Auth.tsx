@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Activity } from "lucide-react";
+import { Activity, Loader2 } from "lucide-react";
+import { loginSchema, signupSchema, sanitizeInput } from "@/lib/validation";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -27,29 +28,48 @@ const Auth = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const validation = signupSchema.safeParse({ email, password, name });
+    if (!validation.success) {
+      toast({
+        title: "Validation Error",
+        description: validation.error.errors[0].message,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
       const { error } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
+          emailRedirectTo: `${window.location.origin}/`,
           data: {
-            name,
+            name: sanitizeInput(name),
           },
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        const errorMessage = error.message.includes("already registered")
+          ? "This email is already registered"
+          : "An error occurred during signup";
+        throw new Error(errorMessage);
+      }
 
       toast({
         title: "Success!",
         description: "Account created successfully. Please check your email to confirm.",
       });
+      setEmail("");
+      setPassword("");
+      setName("");
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: "Signup Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -60,15 +80,31 @@ const Auth = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const validation = loginSchema.safeParse({ email, password });
+    if (!validation.success) {
+      toast({
+        title: "Validation Error",
+        description: validation.error.errors[0].message,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        const errorMessage = error.message === "Invalid login credentials"
+          ? "Invalid email or password"
+          : "An error occurred during login";
+        throw new Error(errorMessage);
+      }
 
       toast({
         title: "Welcome back!",
@@ -77,7 +113,7 @@ const Auth = () => {
       navigate("/dashboard");
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: "Login Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -133,7 +169,14 @@ const Auth = () => {
                     />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? "Signing in..." : "Sign In"}
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Signing in...
+                      </>
+                    ) : (
+                      "Sign In"
+                    )}
                   </Button>
                 </form>
               </CardContent>
@@ -175,15 +218,22 @@ const Auth = () => {
                     <Input
                       id="signup-password"
                       type="password"
-                      placeholder="At least 6 characters"
+                      placeholder="At least 8 characters"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      minLength={6}
+                      minLength={8}
                     />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? "Creating account..." : "Create Account"}
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating account...
+                      </>
+                    ) : (
+                      "Create Account"
+                    )}
                   </Button>
                 </form>
               </CardContent>

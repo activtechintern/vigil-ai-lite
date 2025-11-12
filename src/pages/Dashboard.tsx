@@ -2,25 +2,51 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, AlertTriangle, Clock, TrendingUp } from "lucide-react";
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
+import { format } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Dashboard = () => {
+  const { user } = useAuth();
+
+  // Fetch monitors count
   const { data: monitors } = useQuery({
-    queryKey: ["monitors"],
+    queryKey: ["monitors-count"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("monitors").select("*");
+      const { data, error } = await supabase
+        .from("monitors")
+        .select("id, status");
       if (error) throw error;
       return data;
     },
   });
 
+  // Fetch active alerts count
   const { data: alerts } = useQuery({
-    queryKey: ["alerts"],
+    queryKey: ["alerts-count"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("alerts")
-        .select("*")
+        .select("id")
         .eq("status", "active");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch metrics for uptime and response time
+  const { data: metrics } = useQuery({
+    queryKey: ["dashboard-metrics"],
+    queryFn: async () => {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const { data, error } = await supabase
+        .from("metrics")
+        .select("status, response_time, checked_at")
+        .gte("checked_at", thirtyDaysAgo.toISOString())
+        .order("checked_at", { ascending: true });
+      
       if (error) throw error;
       return data;
     },
@@ -28,14 +54,48 @@ const Dashboard = () => {
 
   const totalMonitors = monitors?.length || 0;
   const activeAlerts = alerts?.length || 0;
-  const upMonitors = monitors?.filter((m) => m.status === "up").length || 0;
-  const uptimePercent = totalMonitors > 0 ? ((upMonitors / totalMonitors) * 100).toFixed(1) : "0.0";
 
-  // Mock data for the chart
-  const chartData = Array.from({ length: 24 }, (_, i) => ({
-    time: `${i}:00`,
-    responseTime: Math.floor(Math.random() * 200) + 100,
-  }));
+  // Calculate uptime percentage (last 30 days)
+  const uptimePercent = metrics && metrics.length > 0
+    ? ((metrics.filter(m => m.status === "up").length / metrics.length) * 100).toFixed(1)
+    : "0.0";
+
+  // Calculate average response time (last 24h)
+  const last24h = metrics?.filter(m => {
+    const checkTime = new Date(m.checked_at);
+    const dayAgo = new Date();
+    dayAgo.setDate(dayAgo.getDate() - 1);
+    return checkTime >= dayAgo;
+  }) || [];
+
+  const avgResponseTime = last24h.length > 0
+    ? Math.round(
+        last24h
+          .filter(m => m.response_time)
+          .reduce((sum, m) => sum + (m.response_time || 0), 0) / 
+        last24h.filter(m => m.response_time).length
+      )
+    : 0;
+
+  // Prepare chart data (hourly averages for last 24h)
+  const chartData = last24h.length > 0
+    ? Object.values(
+        last24h.reduce((acc: any, m) => {
+          const hour = format(new Date(m.checked_at), "HH:00");
+          if (!acc[hour]) {
+            acc[hour] = { time: hour, total: 0, count: 0 };
+          }
+          if (m.response_time) {
+            acc[hour].total += m.response_time;
+            acc[hour].count += 1;
+          }
+          return acc;
+        }, {})
+      ).map((item: any) => ({
+        time: item.time,
+        responseTime: Math.round(item.total / item.count),
+      }))
+    : [];
 
   return (
     <div className="space-y-6">
@@ -69,9 +129,9 @@ const Dashboard = () => {
         />
         <MetricCard
           title="Avg Response"
-          value="142ms"
+          value={`${avgResponseTime}ms`}
           icon={<Clock className="h-4 w-4" />}
-          description="Across all monitors"
+          description="Last 24 hours"
         />
       </div>
 
@@ -80,38 +140,46 @@ const Dashboard = () => {
           <CardTitle>Response Time (Last 24 Hours)</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chartData}>
-              <XAxis
-                dataKey="time"
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => `${value}ms`}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "var(--radius)",
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="responseTime"
-                stroke="hsl(var(--accent))"
-                strokeWidth={2}
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis
+                  dataKey="time"
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `${value}ms`}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "8px",
+                  }}
+                  labelStyle={{ color: "hsl(var(--foreground))" }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="responseTime"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  dot={{ fill: "hsl(var(--primary))" }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="py-8 text-center text-muted-foreground">
+              No data available yet. Add monitors to start tracking performance.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
