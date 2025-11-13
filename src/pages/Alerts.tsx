@@ -1,10 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle } from "lucide-react";
+import { useEffect } from "react";
 
 const Alerts = () => {
+  const queryClient = useQueryClient();
+  
   const { data: alerts, isLoading } = useQuery({
     queryKey: ["alerts"],
     queryFn: async () => {
@@ -19,6 +22,24 @@ const Alerts = () => {
       return data;
     },
   });
+
+  // Real-time subscription for alerts
+  useEffect(() => {
+    const channel = supabase
+      .channel('alerts-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'alerts' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["alerts"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

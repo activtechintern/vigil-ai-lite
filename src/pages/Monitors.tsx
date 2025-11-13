@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,24 @@ const Monitors = () => {
       return data;
     },
   });
+
+  // Real-time subscription for monitors
+  useEffect(() => {
+    const channel = supabase
+      .channel('monitors-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'monitors' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["monitors"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const createMonitor = useMutation({
     mutationFn: async (newMonitor: any) => {

@@ -211,6 +211,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      trigger_health_check: { Args: never; Returns: undefined }
     }
     Enums: {
       alert_status: "active" | "acknowledged" | "resolved"

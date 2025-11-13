@@ -1,13 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, AlertTriangle, Clock, TrendingUp } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEffect } from "react";
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   // Fetch monitors count
   const { data: monitors } = useQuery({
@@ -51,6 +53,38 @@ const Dashboard = () => {
       return data;
     },
   });
+
+  // Real-time subscriptions
+  useEffect(() => {
+    const channel = supabase
+      .channel('dashboard-updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'monitors' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["monitors-count"] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'alerts' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["alerts-count"] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'metrics' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const totalMonitors = monitors?.length || 0;
   const activeAlerts = alerts?.length || 0;
