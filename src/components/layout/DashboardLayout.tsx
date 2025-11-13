@@ -4,7 +4,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, Activity } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,8 +47,16 @@ const DashboardLayout = () => {
       <div className="flex min-h-screen w-full bg-background">
         <AppSidebar />
         <div className="flex flex-1 flex-col">
-          <header className="flex h-16 items-center justify-between border-b border-border px-6">
-            <SidebarTrigger />
+          <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-6">
+            <div className="flex items-center gap-4">
+              <SidebarTrigger />
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent">
+                  <Activity className="h-4 w-4 text-primary-foreground" />
+                </div>
+                <span className="hidden font-semibold text-foreground sm:inline-block">Site24x7-Lite</span>
+              </div>
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
